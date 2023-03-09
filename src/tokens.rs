@@ -1,14 +1,41 @@
 
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Command(CMD),
     Keyword(String),
     Argument(ARG),
+} impl Token {
+    pub fn parse(str: &String) -> Result<Token, Error> {
+
+        if let Some(keyword) = Self::parse_keyword(&str) {
+            return Ok(keyword);
+        }
+
+        if let Some(cmd) = CMD::parse(&str) {
+            return Ok(Token::Command(cmd));
+        }
+
+        if let Some(arg) = ARG::parse(&str) {
+            return Ok(Token::Argument(arg));
+        }
+
+        return Err(Error::new(format!("\u{001b}[31mUnknown Argument: {}\u{001b}[0m", str)));
+    }
+
+    fn parse_keyword(str: &String) -> Option<Token>{
+        match Self::is_keyword(&str) {
+            true => Some(Token::Keyword(str.to_owned())),
+            false => None,
+        }
+    }
+
+    fn is_keyword(arg: &String) -> bool {
+        !arg.starts_with("--")
+    }
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CMD {
     Help,
     Version,
@@ -26,7 +53,7 @@ pub enum CMD {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ARG{
     OnlyKEY,
     OnlyCMD,
@@ -37,5 +64,129 @@ pub enum ARG{
             "--key" => Some(ARG::OnlyKEY),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Error {
+    message: String,
+} impl Error {
+    pub fn new(message: String) -> Self{
+        Self {
+            message
+        }
+    }
+    pub fn description(&self) -> &str {
+        &self.message
+    }
+}
+
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn get_token_cmd() {
+        let result = Token::parse(&String::from("--help"));
+        if result.is_err() {
+            assert!(false, "Failed to parse String into Token CMD");
+        }
+        let result = result.unwrap();
+
+        let expected = Token::Command(CMD::Help);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn get_token_arg() {
+        let result = Token::parse(&String::from("--key"));
+        if result.is_err() {
+            assert!(false, "Failed to parse String into Token ARG");
+        }
+        let result = result.unwrap();
+
+        let expected = Token::Argument(ARG::OnlyKEY);
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn get_token_key() {
+        let result = Token::parse(&String::from("nvim"));
+        if result.is_err() {
+            assert!(false, "Failed to parse String into Token key");
+        }
+        let result = result.unwrap();
+
+        let expected = Token::Keyword(String::from("nvim"));
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn dont_get_token_key() {
+        let result = Token::parse(&String::from("--nvim"));
+        if result.is_ok() {
+            assert!(false, "Got Token key, when shouldnt have");
+        }
+    }
+
+    #[test]
+    fn should_get_cmd() {
+        let result = CMD::parse(&String::from("--help"));
+        if result.is_none() {
+            assert!(false, "Failed to parse String into CMD Token");
+        }
+        let result = result.unwrap();
+        assert_eq!(CMD::Help, result);
+    }
+
+    #[test]
+    fn shouldnt_get_cmd() {
+        let result = CMD::parse(&String::from("help"));
+        if result.is_some() {
+            assert!(false, "Got CMD Token, when shouldnt have");
+        }
+    }
+    
+    #[test]
+    fn should_get_arg() {
+        let result = ARG::parse(&String::from("--key"));
+        if result.is_none() {
+            assert!(false, "Failed to parse String into ARG Token");
+        }
+        let result = result.unwrap();
+        assert_eq!(ARG::OnlyKEY, result);
+    }
+
+    #[test]
+    fn shouldnt_get_arg() {
+        let result = ARG::parse(&String::from("key"));
+        if result.is_some() {
+            assert!(false, "Got ARG Token, when shouldnt have");
+        }
+    }    
+
+    #[test]
+    fn should_get_token_keyword_1() {
+        let result = Token::parse(&String::from("hello-world"));
+        if result.is_err() {
+            assert!(false, "Failed to parse String into Token key");
+        }
+        let result = result.unwrap();
+
+        let expected = Token::Keyword(String::from("hello-world"));
+        assert_eq!(expected, result);
+    }
+    
+    #[test]
+    fn should_get_token_keyword_2() {
+        let result = Token::parse(&String::from("hello--world"));
+        if result.is_err() {
+            assert!(false, "Failed to parse String into Token key");
+        }
+        let result = result.unwrap();
+
+        let expected = Token::Keyword(String::from("hello--world"));
+        assert_eq!(expected, result);
     }
 }
