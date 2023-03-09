@@ -14,7 +14,11 @@ use serde::{Deserialize, Serialize};
 pub fn run(cfg: Config) -> Result<(), Box<Error>> {
     // check for command first
     if let Some(cmd) = cfg.get_first_command_token() {
-        println!("CMD: {:?}", cmd);
+        match cmd {
+            CMD::Help => print_help(),
+            CMD::Version => print_version(),
+            CMD::ListKeys => print_list(&cfg),
+        }
 
         return Ok(());
     }
@@ -27,7 +31,7 @@ pub fn run(cfg: Config) -> Result<(), Box<Error>> {
 
         for i in indexs {
             if let Some(section) = cfg.data.sections.get(i) {
-                print_data_section(section);
+                print_data_section(&cfg, section);
                 has_triggered = true;
             }
         }
@@ -36,9 +40,8 @@ pub fn run(cfg: Config) -> Result<(), Box<Error>> {
         }
     }
 
-
     // else show a message about needing keywords
-
+    print_go_to_help();
     Ok(())
 }
 #[allow(dead_code)] const BLACK: &str = "\x1b[30m";
@@ -51,7 +54,68 @@ pub fn run(cfg: Config) -> Result<(), Box<Error>> {
 #[allow(dead_code)] const WHITE: &str = "\x1b[37m";
 #[allow(dead_code)] const RESET: &str = "\x1b[0m";
 
-fn print_data_section(section: &Section){
+fn print_help(){
+    let version = env!("CARGO_PKG_VERSION");
+
+    println!("insight-cue {}", version);
+    println!("Jquirky <@Jquirky13>");
+    println!("");
+    println!("insight-cue (iq) searchs the config file for a given keywords.");
+    println!("by default, iq will show all information related to the keywords");
+    println!("but by using options that can be filtered.");
+    println!("");
+    println!("Project home page: https://github.com/Jquirky/insight_cue");
+    println!("");
+    println!("USAGE:");
+    println!("   iq [KEYWORD] [OPTIONS]");
+    println!("   iq [COMMAND]");
+    println!("");
+    println!("ARGUMENTS");
+    println!("   --key");
+    println!("      shows only keys");
+    println!("");
+    println!("   --cmd");
+    println!("      shows only commands");
+    println!("");
+    println!("COMMANDS:");
+    println!("   --version");
+    println!("      Shows the current version of insight-cue");
+    println!("");
+    println!("   --list");
+    println!("      Lists all keywords that are within the config file");
+    println!("");
+    println!("   --help");
+    println!("      shows the help page");
+}
+
+fn print_version(){
+    let version = env!("CARGO_PKG_VERSION");
+    println!("insight-cue {}", version)
+}
+
+fn print_list(cfg: &Config){
+    let mut shown = Vec::new();
+    println!("List keys within config:");
+
+    for s in &cfg.data.sections  {
+        for k in &s.keywords {
+            if shown.contains(k) {
+                continue;
+            }
+            println!(" - {}{}{}", MAGENTA,k,RESET);
+            shown.push(k.clone());
+        }
+    }
+
+}
+
+fn print_go_to_help(){
+    println!("{}error{}: no valid keyword or arguments were provided", RED, RESET);
+    println!("For a list of keywords try --list");
+    println!("For more information try --help");
+}
+
+fn print_data_section(cfg: &Config, section: &Section){
 
     let mut title = String::new();
     for (i, element) in section.keywords.iter().enumerate() {
