@@ -1,6 +1,6 @@
 pub mod tokens;
 
-use std::{fs::{File, self}, env, path::Path, io::{BufWriter, Write}, fmt::format};
+use std::{fs, path::Path};
 use directories::ProjectDirs;
 use crate::tokens::*;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 // - a command will override anything else
 
 pub fn run(cfg: Config) -> Result<(), Box<Error>> {
-
     // check for command first
     if let Some(cmd) = cfg.get_first_command_token() {
         println!("CMD: {:?}", cmd);
@@ -23,21 +22,64 @@ pub fn run(cfg: Config) -> Result<(), Box<Error>> {
 
     // else search for keywords, must have a keyword
     if let Some(keys) = cfg.get_keyword_tokens() {
-        println!("keys: {:?}", keys);
+        let indexs = cfg.data.search_for_keywords(&keys);
+        let mut has_triggered = false;
 
+        for i in indexs {
+            if let Some(section) = cfg.data.sections.get(i) {
+                print_data_section(section);
+                has_triggered = true;
+            }
+        }
+        if has_triggered {
+            return Ok(());
+        }
     }
 
 
     // else show a message about needing keywords
 
+    Ok(())
+}
+#[allow(dead_code)] const BLACK: &str = "\x1b[30m";
+#[allow(dead_code)] const RED: &str = "\x1b[31m";
+#[allow(dead_code)] const GREEN: &str = "\x1b[32m";
+#[allow(dead_code)] const YELLOW: &str = "\x1b[33m";
+#[allow(dead_code)] const BLUE: &str = "\x1b[34m";
+#[allow(dead_code)] const MAGENTA: &str = "\x1b[35m";
+#[allow(dead_code)] const CYAN: &str = "\x1b[36m";
+#[allow(dead_code)] const WHITE: &str = "\x1b[37m";
+#[allow(dead_code)] const RESET: &str = "\x1b[0m";
 
-    if false {
-        for i in &cfg.tokens {
-            println!("Got: {:?}", i);
+fn print_data_section(section: &Section){
+
+    let mut title = String::new();
+    for (i, element) in section.keywords.iter().enumerate() {
+        title.push_str(MAGENTA);
+        title.push_str(element);
+        title.push_str(RESET);
+        if i != section.keywords.len() - 1 {
+            title.push_str(", ")
         }
     }
+    println!("{}", title);
 
-    Ok(())
+    if let Some(keys) = &section.keys{
+        println!(" {}Keys{}:", RED, RESET);
+        for (k, i) in keys {
+            let key_format = format!("{}[{}]{}:", GREEN, k, RESET);
+            println!("  {:<30}\"{}\"", key_format, i)
+        }
+    }
+    if let Some(commands) = &section.commands{
+        println!(" {}Commands{}:", RED, RESET);
+        for (c, i) in commands {
+
+            let cmd_format = format!("{}[{}]{}:", GREEN, c, RESET);
+            println!("  {:<30}\"{}\"", cmd_format, i)
+        }
+    }
+    println!("");
 }
 
 fn parse_tokens(args: impl Iterator<Item = String>) -> Result<Vec<Token>, Error> {
@@ -65,7 +107,7 @@ fn check_or_create_file() -> Result<(), Error>{
         return Err(Error::new(format!("Failed to create config dir: {}", err)));
     }
 
-    let data = Data{sections:vec![]};
+    let data = generate_default_data();
     let data:Result<String, serde_json::Error> = serde_json::to_string_pretty(&data);
     if let Err(err) = data {
         return Err(Error::new(format!("Failed to json: {}", err)));
@@ -161,8 +203,37 @@ impl Config {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Data {
     sections: Vec<Section>
+} impl Data {
+    pub fn search_for_keywords(&self, keywords: &Vec<&String>) -> Vec<usize>{
+        let mut results = Vec::new();
+        for (i, sect) in self.sections.iter().enumerate() {
+            for word in keywords {
+                if sect.keywords.contains(word) {
+                    results.push(i);
+                }
+            }
+        }
+        return results;
+    }
 }
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Section {
-    keywords: Option<Vec<(String, String)>>
+    keywords: Vec<String>,
+    keys: Option<Vec<(String, String)>>,
+    commands: Option<Vec<(String, String)>>,
+}
+
+pub fn generate_default_data() -> Data {
+    let iq = Section {
+        keywords : vec!["iq".to_string()],
+        keys: None,
+        commands: Some(vec![
+                       ("--help".to_string(), "shows help menu".to_string())
+        ])
+    };
+
+    Data {
+        sections: vec![iq]
+    }
 }
