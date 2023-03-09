@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -34,13 +36,11 @@ pub enum Token {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub enum CMD {
     Help,
     Version,
     ListKeys,
-    UnknownCMD(String),
 } impl CMD {
     pub fn parse(str: &String) -> Option<CMD> {
         match str.as_str() {
@@ -52,7 +52,6 @@ pub enum CMD {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub enum ARG{
     OnlyKEY,
@@ -62,6 +61,8 @@ pub enum ARG{
     pub fn parse(str: &String) -> Option<ARG> {
         match str.as_str() {
             "--key" => Some(ARG::OnlyKEY),
+            "--cmd" => Some(ARG::OnlyCMD),
+            "--info" => Some(ARG::OnlyINFO),
             _ => None,
         }
     }
@@ -80,6 +81,14 @@ pub struct Error {
         &self.message
     }
 }
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for Error { }
+
 
 
 #[cfg(test)]
